@@ -6,6 +6,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ImmichAuthError, ImmichUpdateClient
@@ -70,7 +71,7 @@ class ImmichUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ATTR_VERSION_CHECK_RAW: version_check,
             }
         except ImmichAuthError as err:
-            raise UpdateFailed(f"Authentication failed: {err}") from err
+            raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
         except UpdateFailed:
             raise
         except Exception as err:

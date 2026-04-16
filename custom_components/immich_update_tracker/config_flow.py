@@ -80,13 +80,10 @@ class ImmichUpdateTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry):
-        return ImmichUpdateTrackerOptionsFlow(config_entry)
+        return ImmichUpdateTrackerOptionsFlow()
 
 
 class ImmichUpdateTrackerOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
         errors = {}
         current = merged_entry_data(self.config_entry)
