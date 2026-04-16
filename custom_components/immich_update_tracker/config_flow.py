@@ -42,33 +42,38 @@ class ImmichUpdateTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            normalized_url = _normalize_url(user_input[CONF_IMMICH_URL])
-            await self.async_set_unique_id(normalized_url)
-            self._abort_if_unique_id_configured()
-
-            session = async_get_clientsession(self.hass)
-            client = ImmichUpdateClient(
-                immich_url=normalized_url,
-                api_key=user_input[CONF_IMMICH_API_KEY],
-                webhook_url=user_input[CONF_UPDATE_WEBHOOK_URL],
-                session=session,
-            )
-
             try:
-                await client.validate()
-            except ImmichAuthError:
-                errors["base"] = "auth"
-            except ImmichApiError:
-                errors["base"] = "cannot_connect"
-            except Exception:
-                errors["base"] = "unknown"
+                normalized_url = _valid_url(user_input[CONF_IMMICH_URL])
+                normalized_webhook_url = _valid_url(user_input[CONF_UPDATE_WEBHOOK_URL])
+            except vol.Invalid:
+                errors["base"] = "invalid_url"
             else:
-                user_input[CONF_IMMICH_URL] = normalized_url
-                user_input[CONF_UPDATE_WEBHOOK_URL] = _normalize_url(user_input[CONF_UPDATE_WEBHOOK_URL])
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME],
-                    data=user_input,
+                await self.async_set_unique_id(normalized_url)
+                self._abort_if_unique_id_configured()
+
+                session = async_get_clientsession(self.hass)
+                client = ImmichUpdateClient(
+                    immich_url=normalized_url,
+                    api_key=user_input[CONF_IMMICH_API_KEY],
+                    webhook_url=normalized_webhook_url,
+                    session=session,
                 )
+
+                try:
+                    await client.validate()
+                except ImmichAuthError:
+                    errors["base"] = "auth"
+                except ImmichApiError:
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    errors["base"] = "unknown"
+                else:
+                    user_input[CONF_IMMICH_URL] = normalized_url
+                    user_input[CONF_UPDATE_WEBHOOK_URL] = normalized_webhook_url
+                    return self.async_create_entry(
+                        title=user_input[CONF_NAME],
+                        data=user_input,
+                    )
 
         return self.async_show_form(step_id="user", data_schema=_build_schema(), errors=errors)
 
@@ -87,25 +92,31 @@ class ImmichUpdateTrackerOptionsFlow(config_entries.OptionsFlow):
         current = merged_entry_data(self.config_entry)
 
         if user_input is not None:
-            session = async_get_clientsession(self.hass)
-            client = ImmichUpdateClient(
-                immich_url=_normalize_url(user_input[CONF_IMMICH_URL]),
-                api_key=user_input[CONF_IMMICH_API_KEY],
-                webhook_url=user_input[CONF_UPDATE_WEBHOOK_URL],
-                session=session,
-            )
             try:
-                await client.validate()
-            except ImmichAuthError:
-                errors["base"] = "auth"
-            except ImmichApiError:
-                errors["base"] = "cannot_connect"
-            except Exception:
-                errors["base"] = "unknown"
+                normalized_url = _valid_url(user_input[CONF_IMMICH_URL])
+                normalized_webhook_url = _valid_url(user_input[CONF_UPDATE_WEBHOOK_URL])
+            except vol.Invalid:
+                errors["base"] = "invalid_url"
             else:
-                user_input[CONF_IMMICH_URL] = _normalize_url(user_input[CONF_IMMICH_URL])
-                user_input[CONF_UPDATE_WEBHOOK_URL] = _normalize_url(user_input[CONF_UPDATE_WEBHOOK_URL])
-                return self.async_create_entry(title="", data=user_input)
+                session = async_get_clientsession(self.hass)
+                client = ImmichUpdateClient(
+                    immich_url=normalized_url,
+                    api_key=user_input[CONF_IMMICH_API_KEY],
+                    webhook_url=normalized_webhook_url,
+                    session=session,
+                )
+                try:
+                    await client.validate()
+                except ImmichAuthError:
+                    errors["base"] = "auth"
+                except ImmichApiError:
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    errors["base"] = "unknown"
+                else:
+                    user_input[CONF_IMMICH_URL] = normalized_url
+                    user_input[CONF_UPDATE_WEBHOOK_URL] = normalized_webhook_url
+                    return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
             step_id="init",
@@ -119,12 +130,12 @@ def _build_schema(defaults: dict | None = None) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): str,
-            vol.Required(CONF_IMMICH_URL, default=defaults.get(CONF_IMMICH_URL, "")): _valid_url,
+            vol.Required(CONF_IMMICH_URL, default=defaults.get(CONF_IMMICH_URL, "")): str,
             vol.Required(CONF_IMMICH_API_KEY, default=defaults.get(CONF_IMMICH_API_KEY, "")): str,
             vol.Required(
                 CONF_UPDATE_WEBHOOK_URL,
                 default=defaults.get(CONF_UPDATE_WEBHOOK_URL, ""),
-            ): _valid_url,
+            ): str,
             vol.Required(
                 CONF_POLL_INTERVAL_MINUTES,
                 default=defaults.get(CONF_POLL_INTERVAL_MINUTES, DEFAULT_POLL_INTERVAL_MINUTES),
