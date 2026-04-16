@@ -1,0 +1,12 @@
+{
+  "domain": "immich_update_tracker",
+  "name": "Immich Update Tracker",
+  "version": "0.1.0",
+  "documentation": "https://github.com/youruser/immich-update-tracker",
+  "issue_tracker": "https://github.com/youruser/immich-update-tracker/issues",
+  "config_flow": true,
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "loggers": ["custom_components.immich_update_tracker"],
+  "codeowners": ["@youruser"]
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Immich Update Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Immich Update Tracker",
+        "description": "Configure Immich version polling and update webhook.",
+        "data": {
+          "name": "Name",
+          "immich_url": "Immich URL",
+          "immich_api_key": "Immich API key",
+          "update_webhook_url": "Update webhook URL",
+          "poll_interval_minutes": "Polling interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Invalid URL",
+      "auth": "Authentication failed",
+      "cannot_connect": "Failed to connect to Immich",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This Immich URL is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Immich Update Tracker Options",
+        "data": {
+          "name": "Name",
+          "immich_url": "Immich URL",
+          "immich_api_key": "Immich API key",
+          "update_webhook_url": "Update webhook URL",
+          "poll_interval_minutes": "Polling interval (minutes)"
+        }
+      }
+    }
+  }
+}
