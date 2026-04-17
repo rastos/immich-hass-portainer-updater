@@ -31,45 +31,43 @@ class ImmichUpdateClient:
         webhook_url: str,
         session: ClientSession,
     ) -> None:
-        self.immich_url = immich_url.rstrip("/")
+        self.immich_url = self._normalize_base_url(immich_url)
         self.api_key = api_key.strip()
         self.webhook_url = webhook_url.strip()
         self.session = session
+
+    @staticmethod
+    def _normalize_base_url(url: str) -> str:
+        url = url.rstrip("/").strip()
+        if url.endswith("/api"):
+            url = url[:-4]
+        return url
 
     @property
     def _headers(self) -> dict[str, str]:
         return {
             "Accept": "application/json",
             "x-api-key": self.api_key,
-            "x-immich-api-key": self.api_key,
         }
 
-    async def _get_json_candidates(
-        self,
-        paths: list[str],
-        *,
-        use_auth: bool = True,
-    ) -> dict[str, Any] | list[Any] | None:
+    async def _get_json(self, path: str, *, use_auth: bool = True) -> dict[str, Any] | list[Any] | None:
         headers = self._headers if use_auth else {"Accept": "application/json"}
+        url = f"{self.immich_url}{path}"
 
-        for path in paths:
-            url = f"{self.immich_url}{path}"
-            try:
-                async with asyncio.timeout(15):
-                    async with self.session.get(url, headers=headers) as response:
-                        if response.status in (401, 403):
-                            raise ImmichAuthError("Authentication failed")
-                        if response.status != 200:
-                            _LOGGER.debug("Skipping %s due to HTTP %s", url, response.status)
-                            continue
-                        return await response.json()
-            except ImmichAuthError:
-                raise
-            except (TimeoutError, ClientError, ValueError) as err:
-                _LOGGER.debug("Request to %s failed: %s", url, err)
-                continue
-
-        return None
+        try:
+            async with asyncio.timeout(15):
+                async with self.session.get(url, headers=headers) as response:
+                    if response.status in (401, 403):
+                        raise ImmichAuthError(f"Authentication failed for {path}")
+                    if response.status != 200:
+                        text = await response.text()
+                        _LOGGER.debug("Request to %s failed with HTTP %s: %s", url, response.status, text)
+                        return None
+                    return await response.json()
+        except ImmichAuthError:
+            raise
+        except (TimeoutError, ClientError, ValueError) as err:
+            raise ImmichApiError(f"Request failed for {path}: {err}") from err
 
     async def validate(self) -> None:
         version = await self.get_current_version()
@@ -77,28 +75,11 @@ class ImmichUpdateClient:
             raise ImmichApiError("Could not validate Immich version endpoint")
 
     async def get_current_version(self) -> str | None:
-        data = await self._get_json_candidates(
-            [
-                "/api/server/version",
-                "/api/server-info/version",
-                "/server/version",
-            ],
-            use_auth=True,
-        )
+        data = await self._get_json("/api/server/version", use_auth=True)
         return self.extract_current_version(data)
 
     async def get_version_check(self) -> dict[str, Any] | None:
-        data = await self._get_json_candidates(
-            [
-                "/api/server/version-check",
-                "/api/server/versionCheck",
-                "/api/server-info/version-check",
-                "/api/server-info/versionCheck",
-                "/server/version-check",
-                "/server/versionCheck",
-            ],
-            use_auth=True,
-        )
+        data = await self._get_json("/api/server/version-check", use_auth=True)
         return data if isinstance(data, dict) else None
 
     async def get_latest_github_release(self) -> str | None:
@@ -154,50 +135,36 @@ class ImmichUpdateClient:
 
     @staticmethod
     def extract_latest_version(data: dict[str, Any] | None) -> str | None:
-        raw = ImmichUpdateClient._find_first(
-            data,
-            {
-                "latestVersion",
-                "latest_version",
-                "newVersion",
-                "releaseVersion",
-                "release_version",
-            },
-        )
-        if isinstance(raw, str):
-            return clean_version(raw)
-        if isinstance(raw, dict):
-            return ImmichUpdateClient.extract_current_version(raw)
+        if not isinstance(data, dict):
+            return None
+
+        for key in (
+            "releaseVersion",
+            "latestVersion",
+            "latest_version",
+            "newVersion",
+            "release_version",
+        ):
+            value = data.get(key)
+            if isinstance(value, str):
+                return clean_version(value)
+
         return None
 
     @staticmethod
     def extract_update_available(data: dict[str, Any] | None) -> bool | None:
-        raw = ImmichUpdateClient._find_first(
-            data,
-            {
-                "isUpdateAvailable",
-                "updateAvailable",
-                "update_available",
-                "hasUpdate",
-                "has_update",
-            },
-        )
-        return raw if isinstance(raw, bool) else None
+        if not isinstance(data, dict):
+            return None
 
-    @staticmethod
-    def _find_first(obj: Any, keys: set[str]) -> Any:
-        if isinstance(obj, dict):
-            for key, value in obj.items():
-                if key in keys:
-                    return value
-                found = ImmichUpdateClient._find_first(value, keys)
-                if found is not None:
-                    return found
-
-        if isinstance(obj, list):
-            for item in obj:
-                found = ImmichUpdateClient._find_first(item, keys)
-                if found is not None:
-                    return found
+        for key in (
+            "isUpdateAvailable",
+            "updateAvailable",
+            "update_available",
+            "hasUpdate",
+            "has_update",
+        ):
+            value = data.get(key)
+            if isinstance(value, bool):
+                return value
 
         return None
