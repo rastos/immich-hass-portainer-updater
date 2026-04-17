@@ -1,5 +1,9 @@
 # Immich Update Tracker
 
+-coded with perplexity on gtp5.4 with deep thinking, not yet tested
+
+it creates entities, with correct version info, and creates button for webhook autoupdate, in theory it should work with any webhook that doesn't need authentication.
+
 HACS-ready Home Assistant custom integration that:
 - reads the current Immich version
 - checks whether an update is available
